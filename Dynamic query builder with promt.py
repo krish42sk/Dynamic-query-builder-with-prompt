@@ -8,6 +8,15 @@ import platform
 import subprocess
 import openai
 
+if not os.path.exists("dynamic_extensions.py"):
+    with open("dynamic_extensions.py", "w") as f:
+        f.write("# Auto-generated function file\n")
+
+import importlib.util
+spec = importlib.util.spec_from_file_location("dynamic_extensions", "dynamic_extensions.py")
+dynamic_ext = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dynamic_ext)
+globals().update(vars(dynamic_ext))
 # ─────────────── DB CONFIG ─────────────── #
 databaseName = 'RFDB_Server'
 username = '15235'
@@ -298,16 +307,18 @@ def main():
                         run_raw_sql(sql)
                 except Exception as e:
                     print(f"❌ Error getting schema or generating SQL: {e}")
-            elif re.match(r"(list|show|print)\\s+all\\s+column(s)?\\s+(of|from)?\\s*(\\w+)", user_input.lower()):
-                match = re.match(r"(list|show|print)\\s+all\\s+column(s)?\\s+(of|from)?\\s*(\\w+)", user_input.lower())
+            elif re.match(r"(list|show|print)\s+all\s+column(s)?\s+(of|from)?\s*(\w+)", user_input.lower()):
+                match = re.match(r"(list|show|print)\s+all\s+column(s)?\s+(of|from)?\s*(\w+)", user_input.lower())
                 tablename = match.group(4)
                 schema = current_context.get("schema") or input("📌 Enter schema name (e.g., public): ").strip()
                 current_context["schema"] = schema
                 current_context["tablename"] = tablename
 
                 # Check if function already exists
-                if not hasattr(__builtins__, "print_table_columns"):
+                if not hasattr(dynamic_ext, "print_table_columns"):
                     carve_function_into_file("print_table_columns")
+                    import importlib
+                    importlib.reload(dynamic_ext)
 
                 from dynamic_extensions import print_table_columns
                 print_table_columns(schema, tablename)
